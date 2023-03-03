@@ -1,4 +1,4 @@
-package com.stream1080.oss;
+package com.stream1080.plugin;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;

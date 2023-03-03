@@ -1,4 +1,4 @@
-package com.stream1080.oss;
+package com.stream1080.plugin;
 
 import com.amazonaws.services.s3.model.Bucket;
 import com.amazonaws.services.s3.model.ObjectMetadata;

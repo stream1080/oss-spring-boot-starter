@@ -1,4 +1,4 @@
-package com.stream1080.oss;
+package com.stream1080.plugin;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.HttpMethod;
