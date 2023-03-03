@@ -16,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +35,9 @@ import java.util.Map;
 @Api(value = "OssEndpoint", tags = "oss:http 接口")
 public class OssEndpoint {
 
+    /**
+     * oss 操作模版
+     */
     private final OssTemplate ossTemplate;
 
 
@@ -64,53 +68,30 @@ public class OssEndpoint {
         ossTemplate.removeBucket(bucketName);
     }
 
-
     @ApiOperation("上传对象")
     @SneakyThrows
     @PostMapping("/object/{bucketName}")
     public S3ObjectSummary createObject(@RequestBody @NotNull MultipartFile object,
                                         @PathVariable @NotBlank String bucketName) {
-        @Cleanup
-        InputStream inputStream = object.getInputStream();
-        String name = object.getOriginalFilename();
 
-        ossTemplate.putObject(bucketName, name, inputStream, object.getSize(), object.getContentType());
-        S3Object objectInfo = ossTemplate.getObjectInfo(bucketName, name);
-        ObjectMetadata objectMetadata = objectInfo.getObjectMetadata();
-        S3ObjectSummary objectSummary = new S3ObjectSummary();
-        objectSummary.setKey(objectInfo.getKey());
-        objectSummary.setBucketName(bucketName);
-        objectSummary.setETag(objectMetadata.getETag());
-        objectSummary.setLastModified(objectMetadata.getLastModified());
-        objectSummary.setSize(objectMetadata.getContentLength());
-        return objectSummary;
+        return buildS3ObjectSummary(object, bucketName, object.getOriginalFilename());
     }
 
-
-    @ApiOperation("获取 bucket 列表")
+    @ApiOperation("上传对象")
     @SneakyThrows
     @PostMapping("/object/{bucketName}/{objectName}")
     public S3ObjectSummary createObject(@RequestBody @NotNull MultipartFile object,
                                         @PathVariable @NotBlank String bucketName,
                                         @PathVariable @NotBlank String objectName) {
-        @Cleanup
-        InputStream inputStream = object.getInputStream();
-        ossTemplate.putObject(bucketName, objectName, inputStream, object.getSize(), object.getContentType());
-        S3Object objectInfo = ossTemplate.getObjectInfo(bucketName, objectName);
-        ObjectMetadata objectMetadata = objectInfo.getObjectMetadata();
-        S3ObjectSummary objectSummary = new S3ObjectSummary();
-        objectSummary.setKey(objectInfo.getKey());
-        objectSummary.setBucketName(bucketName);
-        objectSummary.setETag(objectMetadata.getETag());
-        objectSummary.setLastModified(objectMetadata.getLastModified());
-        objectSummary.setSize(objectMetadata.getContentLength());
-        return objectSummary;
+
+        return buildS3ObjectSummary(object, bucketName, objectName);
     }
 
     @ApiOperation("查询对象")
     @GetMapping("/object/{bucketName}/{objectName}")
     public List<S3ObjectSummary> filterObject(@PathVariable @NotBlank String bucketName,
                                               @PathVariable @NotBlank String objectName) {
+
         return ossTemplate.getAllObjectsByPrefix(bucketName, objectName);
     }
 
@@ -119,12 +100,9 @@ public class OssEndpoint {
     public Map<String, Object> getObjectUrl(@PathVariable @NotBlank String bucketName,
                                             @PathVariable @NotBlank String objectName,
                                             @PathVariable @NotNull Integer expires) {
-        Map<String, Object> map = new HashMap<>(8);
-        map.put("bucket", bucketName);
-        map.put("object", objectName);
-        map.put("url", ossTemplate.getObjectURL(bucketName, objectName, expires));
-        map.put("expires", expires);
-        return map;
+
+        String objectURL = ossTemplate.getObjectURL(bucketName, objectName, expires);
+        return buildResponseBody(bucketName, objectName, objectURL, expires);
     }
 
     @ApiOperation("获取对象外链-用于上传")
@@ -132,12 +110,9 @@ public class OssEndpoint {
     public Map<String, Object> getPutObjectUrl(@PathVariable @NotBlank String bucketName,
                                                @PathVariable @NotBlank String objectName,
                                                @PathVariable @NotNull Integer expires) {
-        Map<String, Object> responseBody = new HashMap<>(8);
-        responseBody.put("bucket", bucketName);
-        responseBody.put("object", objectName);
-        responseBody.put("url", ossTemplate.getPutObjectURL(bucketName, objectName, expires));
-        responseBody.put("expires", expires);
-        return responseBody;
+
+        String objectURL = ossTemplate.getPutObjectURL(bucketName, objectName, expires);
+        return buildResponseBody(bucketName, objectName, objectURL, expires);
     }
 
     @ApiOperation("删除对象")
@@ -145,6 +120,55 @@ public class OssEndpoint {
     @DeleteMapping("/object/{bucketName}/{objectName}/")
     public void deleteObject(@PathVariable @NotBlank String bucketName, @PathVariable @NotBlank String objectName) {
         ossTemplate.removeObject(bucketName, objectName);
+    }
+
+    /**
+     * 构建外链返回 body
+     *
+     * @param bucketName bucket 名称
+     * @param objectName 对象名称
+     * @param objectURL  外链 url
+     * @param expires    过期时间
+     * @return responseBody
+     */
+    private Map<String, Object> buildResponseBody(String bucketName, String objectName,
+                                                  String objectURL, Integer expires) {
+
+        Map<String, Object> responseBody = new HashMap<>(8);
+        responseBody.put("bucket", bucketName);
+        responseBody.put("object", objectName);
+        responseBody.put("url", objectURL);
+        responseBody.put("expires", expires);
+
+        return responseBody;
+    }
+
+    /**
+     * 构建 S3ObjectSummary
+     *
+     * @param object     文件对象
+     * @param bucketName bucket 名称
+     * @param objectName 对象名称
+     * @return S3ObjectSummary
+     * @throws IOException IOException
+     */
+    private S3ObjectSummary buildS3ObjectSummary(MultipartFile object, String bucketName, String objectName)
+        throws IOException {
+
+        @Cleanup
+        InputStream inputStream = object.getInputStream();
+        ossTemplate.putObject(bucketName, objectName, inputStream, object.getSize(), object.getContentType());
+        S3Object objectInfo = ossTemplate.getObjectInfo(bucketName, objectName);
+        ObjectMetadata objectMetadata = objectInfo.getObjectMetadata();
+
+        S3ObjectSummary objectSummary = new S3ObjectSummary();
+        objectSummary.setKey(objectInfo.getKey());
+        objectSummary.setBucketName(bucketName);
+        objectSummary.setETag(objectMetadata.getETag());
+        objectSummary.setLastModified(objectMetadata.getLastModified());
+        objectSummary.setSize(objectMetadata.getContentLength());
+
+        return objectSummary;
     }
 
 }
