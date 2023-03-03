@@ -21,7 +21,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * 对象存储操作模版
@@ -62,8 +61,11 @@ public class OssTemplate implements InitializingBean {
      * @param bucketName bucket名称
      * @return bucket
      */
-    public Optional<Bucket> getBucket(String bucketName) {
-        return amazonS3.listBuckets().stream().filter(b -> b.getName().equals(bucketName)).findFirst();
+    public Bucket getBucket(String bucketName) {
+        return amazonS3.listBuckets().stream()
+            .filter(b -> b.getName().equals(bucketName))
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("bucket not found!"));
     }
 
     /**

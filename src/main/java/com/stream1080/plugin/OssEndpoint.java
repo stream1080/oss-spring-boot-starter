@@ -45,7 +45,7 @@ public class OssEndpoint {
     @PostMapping("/bucket/{bucketName}")
     public Bucket createBucket(@PathVariable @NotBlank String bucketName) {
         ossTemplate.createBucket(bucketName);
-        return ossTemplate.getBucket(bucketName).get();
+        return ossTemplate.getBucket(bucketName);
     }
 
     @ApiOperation("获取 bucket 列表")
@@ -57,8 +57,7 @@ public class OssEndpoint {
     @ApiOperation("获取 bucket")
     @GetMapping("/bucket/{bucketName}")
     public Bucket getBucket(@PathVariable @NotBlank String bucketName) {
-        return ossTemplate.getBucket(bucketName)
-            .orElseThrow(() -> new IllegalArgumentException("Bucket Name not found!"));
+        return ossTemplate.getBucket(bucketName);
     }
 
     @ApiOperation("删除 bucket ")
